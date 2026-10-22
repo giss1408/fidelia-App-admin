@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/config/env.dart';
+import 'features/session_gate.dart';
 import 'ui/theme.dart';
 
 void main() {
@@ -18,7 +19,7 @@ class FideliaAdminApp extends StatelessWidget {
       title: 'Fidelia Admin',
       debugShowCheckedModeBanner: false,
       theme: fideliaTheme(),
-      home: const Scaffold(body: Center(child: Text('Fidelia Admin'))),
+      home: const SessionGate(),
     );
   }
 }
