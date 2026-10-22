@@ -1,16 +1,24 @@
-# fidelia_admin
+# Fidelia Admin
 
-A new Flutter project.
+Private Android app (Flutter, Riverpod, http) for the Fidelia team. Sign in with phone and password (admin role), send WhatsApp codes and temporary passwords, manage accounts. It reuses the core of Fidelia Pro (`ApiClient`, `Env`, `TokenStore`, theme).
 
-## Getting Started
+## Run against the test API
 
-This project is a starting point for a Flutter application.
+```
+flutter pub get
+flutter run --dart-define=FIDELIA_API_BASE=https://<test api host>
+```
 
-A few resources to get you started if this is your first Flutter project:
+Local backend from the Android emulator: `--dart-define=FIDELIA_API_BASE=http://10.0.2.2:8000` (debug only; release builds require https).
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Checks
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```
+flutter analyze
+flutter test
+flutter build apk --debug --dart-define=FIDELIA_API_BASE=https://<test api host>
+```
+
+## Release signing
+
+Copy `android/key.properties.example` to `android/key.properties` (git-ignored, as are `*.jks`). Without it a release build is left unsigned on purpose.

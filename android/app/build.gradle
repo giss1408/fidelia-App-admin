@@ -5,14 +5,28 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Release signing is read from android/key.properties, which is gitignored and
+// never committed. Without it, a release build is unsigned on purpose: we do not
+// fall back to the debug key, because a debug-signed APK is trivially replaced
+// by an attacker's build on the same device.
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
-    namespace = "com.regisse.fidelia.fidelia_admin"
-    compileSdk = flutter.compileSdkVersion
+    namespace = "com.regisse.fidelia.admin"
+    // Google Play requires targetSdk 36 (Android 16) for new apps and updates
+    // since 31 August 2026; Flutter 3.24's defaults are 34.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
+        // Needed for java.time and other desugared APIs on API 21.
+        coreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -20,23 +34,49 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.regisse.fidelia.fidelia_admin"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        applicationId = "com.regisse.fidelia.admin"
+        minSdk = 21
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Ship only the languages we translate. Drops unused AndroidX strings.
+        resourceConfigurations += ["fr", "en"]
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties["keyAlias"]
+                keyPassword = keystoreProperties["keyPassword"]
+                storeFile = keystoreProperties["storeFile"] ? file(keystoreProperties["storeFile"]) : null
+                storePassword = keystoreProperties["storePassword"]
+            }
+        }
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            signingConfig = keystorePropertiesFile.exists() ? signingConfigs.release : null
+            // Strip unreachable Dart-facing Java/Kotlin and unused resources.
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            // Never ship a debuggable release: it exposes the app's data
+            // directory over adb on any device.
+            debuggable = false
         }
     }
+
+    // Reproducible-ish builds: no timestamps baked into the APK.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
 }
 
 flutter {
