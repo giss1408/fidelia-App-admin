@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'accounts/accounts_api.dart';
 import 'auth/auth_repository.dart';
 import 'auth/token_store.dart';
 import 'net/api_client.dart';
@@ -34,6 +35,9 @@ final Provider<ApiClient> apiClientProvider = Provider<ApiClient>((ref) {
   ref.onDispose(client.close);
   return client;
 });
+
+final Provider<AccountsApi> accountsApiProvider =
+    Provider<AccountsApi>((ref) => AccountsApi(ref.watch(apiClientProvider)));
 
 final Provider<AuthRepository> authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
