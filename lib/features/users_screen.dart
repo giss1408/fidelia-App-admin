@@ -17,6 +17,8 @@ const _roleNames = {
   'admin': 'Admin',
 };
 
+const _genericError = 'Une erreur est survenue. Réessayez.';
+
 /// « Utilisateurs »: find an account by phone and act on it.
 class UsersScreen extends ConsumerStatefulWidget {
   const UsersScreen({super.key});
@@ -58,12 +60,18 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
     final phone = _phone.text.trim();
     if (_busy || phone.isEmpty) return;
     FocusScope.of(context).unfocus();
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _user = null;
+      _notFound = false;
+    });
     try {
-      _searched = phone;
       await _load(phone);
+      _searched = phone;
     } on ApiException catch (e) {
       _say(e.message);
+    } catch (_) {
+      _say(_genericError);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -96,6 +104,8 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
       await _load(_searched);
     } on ApiException catch (e) {
       _say(e.message);
+    } catch (_) {
+      _say(_genericError);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

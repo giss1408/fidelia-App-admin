@@ -189,7 +189,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.calls, ['signOut 7', 'reset 7']);
     expect(find.textContaining('Demande créée'), findsOneWidget);
-    expect(api.checkLoads, greaterThanOrEqualTo(before));
+    expect(api.checkLoads, greaterThan(before));
+  });
+
+  testWidgets('failed second search leaves no card to act on', (tester) async {
+    await pump(tester);
+    await search(tester);
+    expect(find.text('Suspendre'), findsOneWidget);
+    api.error = const NetworkException('Pas de connexion.');
+    await tester.enterText(find.byType(TextField), '05 00 00 00 99');
+    await tester.tap(find.text('Rechercher'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pas de connexion.'), findsOneWidget);
+    expect(find.text('Suspendre'), findsNothing);
+    expect(api.calls, isEmpty);
+  });
+
+  testWidgets('unexpected error shows a generic message', (tester) async {
+    api.error = StateError('boom');
+    await pump(tester);
+    await search(tester);
+    expect(find.text('Une erreur est survenue. Réessayez.'), findsOneWidget);
   });
 
   testWidgets('API error is shown as a SnackBar', (tester) async {
@@ -260,7 +280,7 @@ void main() {
     expect(find.byType(Card), findsNWidgets(2));
   });
 
-  testWidgets('ties are broken by id', (tester) async {
+  testWidgets('ties in age are broken by id', (tester) async {
     await pump(tester);
     await tester.tap(find.text('Numéros à vérifier'));
     await tester.pumpAndSettle();
