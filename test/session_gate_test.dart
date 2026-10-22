@@ -1,3 +1,5 @@
+import 'package:fidelia_admin/core/accounts/accounts_api.dart';
+import 'package:fidelia_admin/core/accounts/models.dart';
 import 'package:fidelia_admin/core/auth/auth_repository.dart';
 import 'package:fidelia_admin/core/providers.dart';
 import 'package:fidelia_admin/features/session_gate.dart';
@@ -7,6 +9,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_auth.dart';
+
+/// Home loads the request lists; none of these tests care about them.
+class _NoChecks implements AccountsApi {
+  @override
+  Future<List<AccountCheck>> checks(String kind) async => const [];
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 ProviderContainer container(FakeAuth auth) {
   final c = ProviderContainer(overrides: [authRepositoryProvider.overrideWithValue(auth)]);
@@ -18,7 +28,7 @@ void main() {
   group('SessionGate', () {
     Future<void> pumpGate(WidgetTester tester, FakeAuth auth) async {
       await tester.pumpWidget(ProviderScope(
-        overrides: [authRepositoryProvider.overrideWithValue(auth)],
+        overrides: [authRepositoryProvider.overrideWithValue(auth), accountsApiProvider.overrideWithValue(_NoChecks())],
         child: MaterialApp(theme: fideliaTheme(), home: const SessionGate()),
       ));
       await tester.pumpAndSettle();
