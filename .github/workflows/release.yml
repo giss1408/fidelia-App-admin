@@ -1,0 +1,193 @@
+# Build the signed Fidelia Admin release and publish the APK as a GitHub Release.
+#
+# Trigger: push a version tag, e.g.  git tag v0.1.0 && git push origin v0.1.0
+# (or run it by hand from the Actions tab).
+#
+# This app is private (the Fidelia team only): the repository should be
+# private too, and the APK must never be shared publicly.
+#
+# One-time setup (repository Settings -> Secrets and variables -> Actions):
+#   Secrets  ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+#            ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD   (scripts/create-signing-key.sh)
+#   Variable FIDELIA_API_BASE  REQUIRED: the API's https address.
+
+name: Release Fidelia Admin
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  APP: "fidelia-admin"
+  # No default on purpose: a guessed address can belong to someone else.
+  API_BASE: ${{ vars.FIDELIA_API_BASE }}
+  FLUTTER_VERSION: "3.24.2"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: API address
+        run: |
+          case "$API_BASE" in
+            https://*) echo "Building against $API_BASE" ;;
+            *) echo "::error::Set the repository variable FIDELIA_API_BASE to your API's https address (Settings -> Secrets and variables -> Actions -> Variables)."; exit 1 ;;
+          esac
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 "$API_BASE/health" || true)
+          echo "Health check: HTTP $code"
+          if [ "$code" != "200" ]; then echo "::warning::$API_BASE/health did not answer 200 (a sleeping free instance may just be waking up)."; fi
+
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Analyze and test
+        run: |
+          flutter analyze
+          flutter test
+
+      # Never publish an unsigned or debug-signed APK: testers could not update
+      # it, and a debug key would let anyone ship a replacement.
+      - name: Signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "::error::Signing secrets are missing. Run scripts/create-signing-key.sh and add them to the repository secrets."
+            exit 1
+          fi
+          # Forgive what copying can add: the secret's own "NAME=" prefix (from
+          # the secrets file), surrounding quotes, spaces and line breaks.
+          tidy() { printf '%s' "$2" | tr -d '\r\n' | sed -e "s/^[[:space:]]*$1=//" -e 's/^[[:space:]]*//; s/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"; }
+          KEYSTORE_PASSWORD="$(tidy ANDROID_KEYSTORE_PASSWORD "$KEYSTORE_PASSWORD")"
+          KEY_PASSWORD="$(tidy ANDROID_KEY_PASSWORD "${KEY_PASSWORD:-$KEYSTORE_PASSWORD}")"
+          KEY_ALIAS="$(tidy ANDROID_KEY_ALIAS "$KEY_ALIAS")"
+          KEYSTORE_BASE64="$(tidy ANDROID_KEYSTORE_BASE64 "$KEYSTORE_BASE64" | tr -d ' \t')"
+          # Base64 never starts with '=', and its padding follows from its length:
+          # drop a separator copied along ("=MII...") or an extra '=' at the end,
+          # then pad back to a multiple of four.
+          KEYSTORE_BASE64="$(printf '%s' "$KEYSTORE_BASE64" | sed -e 's/^=*//' -e 's/=*$//')"
+          while [ $(( ${#KEYSTORE_BASE64} % 4 )) -ne 0 ]; do KEYSTORE_BASE64="${KEYSTORE_BASE64}="; done
+          echo "Secret lengths (not values): keystore base64 ${#KEYSTORE_BASE64}, password ${#KEYSTORE_PASSWORD}, alias '$KEY_ALIAS'."
+
+          if ! printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks" 2>/dev/null; then
+            bad=$(printf '%s' "$KEYSTORE_BASE64" | LC_ALL=C tr -d 'A-Za-z0-9+/=' | wc -c)
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64 (${#KEYSTORE_BASE64} characters, $bad not base64). Paste the value alone, as produced by scripts/create-signing-key.sh."
+            exit 1
+          fi
+          # A keystore (PKCS12 or JKS) is DER-encoded: it starts with 0x30 0x82.
+          if [ "$(head -c 2 "$RUNNER_TEMP/release.jks" | od -An -tx1 | tr -d ' \n')" != "3082" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 decodes, but not to a keystore ($(wc -c < "$RUNNER_TEMP/release.jks") bytes). Did you paste the password or another value into it?"
+            exit 1
+          fi
+
+          # Check the key before a three-minute build, and say which secret is wrong.
+          if ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" >/dev/null 2>&1; then
+            echo "::error::ANDROID_KEYSTORE_PASSWORD does not open the keystore in ANDROID_KEYSTORE_BASE64. Re-enter the password this app's key was created with (not another app's), with no trailing space."
+            exit 1
+          fi
+          if ! keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::ANDROID_KEY_ALIAS '$KEY_ALIAS' is not in the keystore. Aliases found:"
+            keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" | grep -i privatekeyentry || true
+            exit 1
+          fi
+          echo "Keystore and alias check out."
+          # keytool creates PKCS12 keystores, which have a single password: the
+          # key's password is the store's. Use it if the two secrets disagree.
+          if [ "$KEY_PASSWORD" != "$KEYSTORE_PASSWORD" ]; then
+            echo "::warning::ANDROID_KEY_PASSWORD differs from ANDROID_KEYSTORE_PASSWORD; using the keystore password for the key (PKCS12 keystores have one password)."
+            KEY_PASSWORD="$KEYSTORE_PASSWORD"
+          fi
+
+          # key.properties is a Java properties file, where a backslash is an
+          # escape character: double it, or a password containing one would be
+          # silently altered and rejected by the signer.
+          esc() { printf '%s' "$1" | sed 's/\\/\\\\/g'; }
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            echo "storePassword=$(esc "$KEYSTORE_PASSWORD")"
+            echo "keyAlias=$(esc "$KEY_ALIAS")"
+            echo "keyPassword=$(esc "$KEY_PASSWORD")"
+          } > android/key.properties
+
+      # Version name from the tag (v0.1.0 -> 0.1.0); version code from the run
+      # number, so every release installs as an update over the previous one.
+      - name: Version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then NAME="${GITHUB_REF#refs/tags/v}"; else NAME="0.0.0-dev"; fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "number=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: scripts/build-release.sh "$API_BASE" --build-name="${{ steps.version.outputs.name }}" --build-number="${{ steps.version.outputs.number }}"
+
+      - name: Stable file names
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/$APP.apk"
+          ( cd dist && sha256sum *.apk > SHA256SUMS.txt && ls -la )
+          echo "APK_MB=$(du -m dist/$APP.apk | cut -f1)" >> "$GITHUB_ENV"
+
+      # Check the signature before publishing anything.
+      - name: Verify APK signature
+        run: |
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose "dist/$APP.apk"
+
+      # The Google Play bundle, signed with the same key as the APKs. Kept with
+      # the run for upload in the Play Console (internal testing track), never
+      # attached to the GitHub Release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: play-bundle-${{ steps.version.outputs.name }}-${{ steps.version.outputs.number }}
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 90
+
+      # The obfuscation map: needed to read a crash report from the field.
+      # Kept with the run, never attached to the GitHub Release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: symbols-${{ steps.version.outputs.name }}
+          path: build/symbols
+          retention-days: 90
+
+      - name: GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Fidelia Admin ${{ steps.version.outputs.name }}
+          files: |
+            dist/*.apk
+            dist/SHA256SUMS.txt
+          body: |
+            **Fidelia Admin ${{ steps.version.outputs.name }}** — application privée de l'équipe Fidelia. Ne pas partager hors de l'équipe.
+
+            **Installer sur Android**
+            1. Téléchargez `${{ env.APP }}.apk` (~${{ env.APK_MB }} Mo).
+            2. Ouvrez le fichier, puis autorisez « Installer des applications inconnues » pour votre navigateur.
+            3. Touchez **Installer**. Les versions suivantes s'installent par-dessus.
+
+      - name: Clean up signing material
+        if: always()
+        run: rm -f android/key.properties "$RUNNER_TEMP/release.jks"

@@ -3,11 +3,11 @@
 # Generate a keystore (keep the .jks and these passwords in a password manager
 # or secret store; losing them means you can never update the app again):
 #
-#   keytool -genkey -v -keystore ~/fidelia-release.jks \
-#     -keyalg RSA -keysize 4096 -validity 10000 -alias fidelia
+#   keytool -genkey -v -keystore ~/fidelia-admin-release.jks \
+#     -keyalg RSA -keysize 4096 -validity 10000 -alias fidelia-admin
 #
 storePassword=
 keyPassword=
-keyAlias=fidelia
+keyAlias=fidelia-admin
 # Absolute path, outside the repository.
-storeFile=/absolute/path/to/fidelia-release.jks
+storeFile=/absolute/path/to/fidelia-admin-release.jks

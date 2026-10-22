@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  TLS policy for the merchant app.
+  TLS policy for the Fidelia Admin app.
 
   base-config applies to every connection. Cleartext is refused outright: on a
   shared 2G/3G network in a market, a downgraded request leaks a bearer token
-  and a merchant's full sales history to anyone on the same cell.
+  and account data to anyone on the same cell.
 
   On API 21-23 the system trust store is used without the user store, so a
   locally installed root cannot silently intercept traffic. We do not pin a
-  certificate here: pinning shipped in an APK that merchants update rarely is
+  certificate here: pinning shipped in an APK that is updated rarely is
   an outage waiting to happen. Pinning belongs in the client, keyed to a
   rotation schedule, once the production hostname and its CA are fixed.
 -->

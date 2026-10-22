@@ -23,7 +23,7 @@ typedef UnauthorizedCallback = Future<void> Function();
 typedef SessionRefresher = Future<bool> Function();
 
 /// Told how many bytes one call cost (request and response, headers
-/// estimated, TLS not counted), so the pilot can report data used per user.
+/// estimated, TLS not counted), so the app can report data used.
 typedef TrafficCallback = void Function(int sent, int received);
 
 /// The single path every byte to the Fidelia API travels through.
@@ -31,9 +31,8 @@ typedef TrafficCallback = void Function(int sent, int received);
 /// Responsibilities, all of them bandwidth- or security-driven:
 ///
 /// * **Ask for gzip.** Note the backend has no compression middleware today
-///   (see ARCHITECTURE.md), so this currently changes nothing — but the header
-///   costs ~20 bytes and pays off the day it is added, without an app update
-///   reaching every user.
+///   so this may change nothing — but the header costs ~20 bytes and pays
+///   off the day it is added, without an app update.
 /// * **Bound every wait.** A half-open socket on a flaky cell otherwise hangs
 ///   the UI indefinitely.
 /// * **Never log a token, a phone number, or an amount.** Breadcrumbs from a

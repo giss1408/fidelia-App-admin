@@ -87,10 +87,9 @@ const serif = 'InstrumentSerif';
 TextStyle serifStyle(double size, {Color color = FideliaColors.ink, FontStyle? style, double height = 1.05}) =>
     TextStyle(fontFamily: serif, fontSize: size, color: color, fontStyle: style, height: height, fontWeight: FontWeight.w400);
 
-/// Fidelia's palette, shared with the public site and the customer app.
+/// Fidelia's palette, shared with the public site and the other Fidelia apps.
 ///
-/// Three constraints from the Fidelia Pro brief still drive every
-/// choice here, even after adopting the customer app's visual language:
+/// Three constraints still drive every choice here:
 ///
 /// * **Sunlight.** The app may be used outdoors at midday. Contrast is
 ///   high and surfaces stay light; a dark theme is unreadable on a cheap LCD

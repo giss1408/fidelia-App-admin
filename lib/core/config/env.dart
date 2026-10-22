@@ -24,23 +24,10 @@ class Env {
     defaultValue: 'http://10.0.2.2:8000',
   );
 
-  /// Sign-in prefill for development, e.g.
-  ///   --dart-define=FIDELIA_DEV_PHONE=0712345678
-  /// Empty unless passed, and ignored in a release build, so no number can
-  /// ship in an APK by accident. Locally the backend's console sender with
-  /// OTP_DEV_ECHO=1 returns the code too, so no SIM is needed.
-  static const String _devPhone = String.fromEnvironment('FIDELIA_DEV_PHONE');
-
-  static String get devPhone => isRelease ? '' : _devPhone;
-
   /// Reported with each error so a crash maps to the build that shipped it.
   /// Keep in step with `version:` in pubspec.yaml; the release script passes
   /// it as --dart-define=FIDELIA_APP_VERSION=<version>.
   static const String appVersion = String.fromEnvironment('FIDELIA_APP_VERSION', defaultValue: '0.1.0+1');
-
-  /// Debug builds print errors instead of reporting them, unless asked with
-  /// --dart-define=FIDELIA_REPORT_ERRORS=true (to test the pipeline locally).
-  static const bool reportErrors = isRelease || bool.fromEnvironment('FIDELIA_REPORT_ERRORS');
 
   /// Wall-clock budget for a single request. Deliberately generous: a 2G
   /// round trip in a market can take several seconds, and failing early just
