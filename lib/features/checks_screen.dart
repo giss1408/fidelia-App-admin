@@ -36,12 +36,29 @@ final checksProvider = FutureProvider.autoDispose<ChecksData>((ref) async {
     api.checks('change_number'),
     api.checks('reset_password'),
   ]);
-  int oldestFirst(AccountCheck a, AccountCheck b) => a.createdAt.compareTo(b.createdAt);
+  int oldestFirst(AccountCheck a, AccountCheck b) {
+    final byAge = a.createdAt.compareTo(b.createdAt);
+    return byAge != 0 ? byAge : a.id.compareTo(b.id);
+  }
   final verify = [...results[0], ...results[1]]..sort(oldestFirst);
   final forgot = results[2].where((c) => !c.teamCreated).toList()..sort(oldestFirst);
   final team = results[2].where((c) => c.teamCreated).toList()..sort(oldestFirst);
   return ChecksData({ChecksList.verify: verify, ChecksList.forgot: forgot, ChecksList.team: team});
 });
+
+/// Reloads the lists. If that fails while an earlier list is still on screen,
+/// the list stays and the error is returned for a SnackBar; otherwise null
+/// (the screen shows its own error state).
+Future<String?> refreshChecks(WidgetRef ref) async {
+  ref.invalidate(checksProvider);
+  try {
+    await ref.read(checksProvider.future);
+    return null;
+  } catch (e) {
+    if (!ref.read(checksProvider).hasValue) return null;
+    return e is ApiException ? e.message : 'Actualisation impossible.';
+  }
+}
 
 class ChecksScreen extends ConsumerStatefulWidget {
   const ChecksScreen({super.key, required this.list});
@@ -56,12 +73,8 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
   bool _busy = false;
 
   Future<void> _refresh() async {
-    ref.invalidate(checksProvider);
-    try {
-      await ref.read(checksProvider.future);
-    } catch (_) {
-      // The list shows its own error state.
-    }
+    final error = await refreshChecks(ref);
+    if (error != null) _say(error);
   }
 
   void _say(String message) {
@@ -125,6 +138,7 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: data.when(
+          skipError: true,
           loading: () => _scrollable(const [Center(child: CircularProgressIndicator())]),
           error: (e, _) => _scrollable([
             Center(child: Text(e is ApiException ? e.message : 'Chargement impossible. Tirez pour réessayer.')),

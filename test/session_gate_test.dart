@@ -46,7 +46,7 @@ void main() {
 
     testWidgets('session shows home', (tester) async {
       await pumpGate(tester, FakeAuth(session: true));
-      expect(find.text('À traiter'), findsOneWidget);
+      expect(find.descendant(of: find.byType(AppBar), matching: find.text('À traiter')), findsOneWidget);
     });
 
     testWidgets('after the change the gate shows home', (tester) async {
@@ -55,7 +55,7 @@ void main() {
       await tester.enterText(find.widgetWithText(TextField, 'Confirmez le mot de passe'), 'goodpassword1');
       await tester.tap(find.text('Enregistrer'));
       await tester.pumpAndSettle();
-      expect(find.text('À traiter'), findsOneWidget);
+      expect(find.descendant(of: find.byType(AppBar), matching: find.text('À traiter')), findsOneWidget);
       expect(find.text('Choisissez votre mot de passe'), findsNothing);
     });
 

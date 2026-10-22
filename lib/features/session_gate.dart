@@ -13,6 +13,12 @@ class SessionGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
+    // Signed out (or token rejected) with screens pushed on top: back to the gate.
+    ref.listen<SessionState>(sessionProvider, (previous, next) {
+      if (previous?.signedIn == true && !next.signedIn) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    });
     if (!session.checked) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }

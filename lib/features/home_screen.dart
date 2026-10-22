@@ -3,11 +3,44 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/net/api_exception.dart';
 import '../ui/theme.dart';
+import 'account_screen.dart';
 import 'checks_screen.dart';
+import 'users_screen.dart';
+
+/// The signed-in shell: « À traiter », « Utilisateurs » and « Compte ».
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _index,
+        children: const [TodoTab(), UsersScreen(), AccountScreen()],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox), label: 'À traiter'),
+          NavigationDestination(icon: Icon(Icons.search), label: 'Utilisateurs'),
+          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Compte'),
+        ],
+      ),
+    );
+  }
+}
 
 /// « À traiter »: the three request lists with their counts.
-class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+class TodoTab extends ConsumerWidget {
+  const TodoTab({super.key});
 
   static const _keys = {
     ChecksList.verify: Key('card-verify'),
@@ -19,10 +52,12 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(checksProvider);
     Future<void> refresh() async {
-      ref.invalidate(checksProvider);
-      try {
-        await ref.read(checksProvider.future);
-      } catch (_) {}
+      final error = await refreshChecks(ref);
+      if (error != null && context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(error)));
+      }
     }
 
     return Scaffold(

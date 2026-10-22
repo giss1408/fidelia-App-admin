@@ -27,7 +27,7 @@ void main() {
 
     expect(auth.lastPhone, '07 01 02 03 04');
     expect(auth.lastPassword, 'secret-pass');
-    expect(find.text('À traiter'), findsOneWidget);
+    expect(find.descendant(of: find.byType(AppBar), matching: find.text('À traiter')), findsOneWidget);
   });
 
   testWidgets('password is obscured and can be revealed', (tester) async {
