@@ -116,6 +116,11 @@ String jwtRole(String token) {
   return role is String ? role : '';
 }
 
+/// Whether the token carries the `pc` (password change required) claim, set
+/// while the account still uses a temporary password. Same caveat as
+/// [jwtExpiry]: it only decides what the app shows; the server enforces it.
+bool jwtMustChangePassword(String token) => _jwtClaims(token)?['pc'] == true;
+
 Map<Object?, Object?>? _jwtClaims(String token) {
   final parts = token.split('.');
   if (parts.length != 3) return null;

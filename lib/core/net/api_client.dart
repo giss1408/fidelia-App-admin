@@ -129,6 +129,7 @@ class ApiClient {
     Object? body,
     String? idempotencyKey,
     bool authenticated = true,
+    bool unauthorizedEndsSession = true,
   }) async {
     final decoded = await _send(
       'POST',
@@ -136,6 +137,7 @@ class ApiClient {
       jsonBody: body,
       idempotencyKey: idempotencyKey,
       authenticated: authenticated,
+      unauthorizedEndsSession: unauthorizedEndsSession,
     );
     return _asObject(decoded);
   }
@@ -173,6 +175,7 @@ class ApiClient {
     Object? jsonBody,
     String? idempotencyKey,
     required bool authenticated,
+    bool unauthorizedEndsSession = true,
     bool isRetry = false,
   }) async {
     final uri = Uri.parse('$_baseUrl$path').replace(
@@ -216,7 +219,7 @@ class ApiClient {
     } on HandshakeException {
       // A failed TLS handshake can mean interception, not just a bad cert.
       // Never downgrade or retry over cleartext in response to this.
-      throw const NetworkException('Connexion sécurisée impossible. Vérifiez la date et l\'heure du telephone.');
+      throw const NetworkException('Connexion sécurisée impossible. Vérifiez la date et l\'heure du téléphone.');
     } on http.ClientException catch (error) {
       throw NetworkException(error.message);
     }
@@ -226,7 +229,7 @@ class ApiClient {
     // token and replay the request; only if that fails is the session over.
     // Safe to replay: a 401 means the server did nothing, and anything that
     // creates a record carries its idempotency key into the retry.
-    if (response.statusCode == 401 && authenticated && !isRetry && _onRefresh != null) {
+    if (response.statusCode == 401 && authenticated && unauthorizedEndsSession && !isRetry && _onRefresh != null) {
       if (await _onRefresh()) {
         return _send(
           method,
@@ -235,12 +238,13 @@ class ApiClient {
           jsonBody: jsonBody,
           idempotencyKey: idempotencyKey,
           authenticated: authenticated,
+          unauthorizedEndsSession: unauthorizedEndsSession,
           isRetry: true,
         );
       }
     }
 
-    return _handleResponse(response, authenticated: authenticated);
+    return _handleResponse(response, authenticated: authenticated && unauthorizedEndsSession);
   }
 
   static Never _onTimeout() => throw TimeoutException('request timed out');
