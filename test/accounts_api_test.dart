@@ -75,6 +75,18 @@ void main() {
     expect(uri.host, 'wa.me');
   });
 
+  test('send without a usable url is a MalformedResponseException', () async {
+    setup((_) => json(200, {}));
+    await expectLater(api.send(7), throwsA(isA<MalformedResponseException>()));
+    setup((_) => json(200, {'url': 'not a url'}));
+    await expectLater(api.send(7), throwsA(isA<MalformedResponseException>()));
+  });
+
+  test('resetPassword without check_id is a MalformedResponseException', () async {
+    setup((_) => json(200, {}));
+    await expectLater(api.resetPassword(3), throwsA(isA<MalformedResponseException>()));
+  });
+
   test('send and refuse map 409 to AlreadyHandled', () async {
     setup((_) => json(409, {'detail': 'Cette demande est deja traitee.'}));
     await expectLater(api.send(1), throwsA(isA<AlreadyHandled>()));

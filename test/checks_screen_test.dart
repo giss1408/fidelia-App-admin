@@ -180,6 +180,18 @@ void main() {
     expect(find.text('Compte suspendu.'), findsOneWidget);
   });
 
+  testWidgets('an unexpected error shows a generic message and refreshes', (tester) async {
+    api.sendError = const FormatException('bad');
+    await pump(tester);
+    final before = api.loads;
+    await tester.tap(find.text('Mots de passe oubliés'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Envoyer un mot de passe temporaire sur WhatsApp'));
+    await tester.pumpAndSettle();
+    expect(find.text('Une erreur est survenue. Réessayez.'), findsOneWidget);
+    expect(api.loads, greaterThan(before));
+  });
+
   testWidgets('other API errors show their message', (tester) async {
     api.sendError = const NetworkException('Pas de connexion.');
     await pump(tester);

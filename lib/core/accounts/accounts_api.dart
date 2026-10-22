@@ -30,7 +30,12 @@ class AccountsApi {
   /// carries the code or password: hand it to the launcher, never log it.
   Future<Uri> send(int id) async {
     final json = await _handled(() => _client.postJson('$_base/checks/$id/send'));
-    return Uri.parse(json['url']! as String);
+    final url = json['url'];
+    final uri = url is String ? Uri.tryParse(url) : null;
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      throw const MalformedResponseException('Réponse inattendue du serveur. Réessayez.');
+    }
+    return uri;
   }
 
   Future<void> refuse(int id) async {
@@ -66,7 +71,11 @@ class AccountsApi {
   /// Opens a reset_password check; returns its id.
   Future<int> resetPassword(int userId) async {
     final json = await _client.postJson('$_base/users/$userId/reset-password');
-    return json['check_id']! as int;
+    final id = json['check_id'];
+    if (id is! int) {
+      throw const MalformedResponseException('Réponse inattendue du serveur. Réessayez.');
+    }
+    return id;
   }
 
   Future<T> _handled<T>(Future<T> Function() call) async {

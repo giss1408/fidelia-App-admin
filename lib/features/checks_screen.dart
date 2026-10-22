@@ -94,8 +94,10 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
       _say(e.message);
     } on ApiException catch (e) {
       _say(e.message);
+    } catch (_) {
+      _say('Une erreur est survenue. Réessayez.');
     } finally {
-      await _refresh();
+      if (mounted) await _refresh();
       if (mounted) setState(() => _busy = false);
     }
   }
