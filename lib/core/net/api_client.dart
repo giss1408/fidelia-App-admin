@@ -30,8 +30,8 @@ typedef TrafficCallback = void Function(int sent, int received);
 ///
 /// Responsibilities, all of them bandwidth- or security-driven:
 ///
-/// * **Ask for gzip.** Note the backend has no compression middleware today
-///   so this may change nothing — but the header costs ~20 bytes and pays
+/// * **Ask for gzip.** Note the backend has no compression middleware today,
+///   so this may change nothing, but the header costs ~20 bytes and pays
 ///   off the day it is added, without an app update.
 /// * **Bound every wait.** A half-open socket on a flaky cell otherwise hangs
 ///   the UI indefinitely.

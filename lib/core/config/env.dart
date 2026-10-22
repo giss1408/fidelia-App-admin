@@ -24,7 +24,7 @@ class Env {
     defaultValue: 'http://10.0.2.2:8000',
   );
 
-  /// Reported with each error so a crash maps to the build that shipped it.
+  /// The build's version, to match a build to its obfuscation symbols.
   /// Keep in step with `version:` in pubspec.yaml; the release script passes
   /// it as --dart-define=FIDELIA_APP_VERSION=<version>.
   static const String appVersion = String.fromEnvironment('FIDELIA_APP_VERSION', defaultValue: '0.1.0+1');

@@ -20,7 +20,8 @@ clean() { printf '%s' "$1" | sed $'s/\x1b\\[20[01]~//g' | LC_ALL=C tr -d '\000-\
 
 SOURCE=""
 if [ -f "$SECRETS" ]; then
-  PASS="$(grep '^ANDROID_KEYSTORE_PASSWORD=' "$SECRETS" | cut -d= -f2-)"; SOURCE="$SECRETS"
+  PASS="$(grep '^ANDROID_KEYSTORE_PASSWORD=' "$SECRETS" | cut -d= -f2- || true)"; SOURCE="$SECRETS"
+  [ -n "$PASS" ] || { echo "error: no ANDROID_KEYSTORE_PASSWORD= line in $SECRETS." >&2; exit 1; }
 elif command -v pass >/dev/null 2>&1 && pass show "android/fidelia-admin-password" >/dev/null 2>&1; then
   PASS="$(pass show "android/fidelia-admin-password" | head -1)"; SOURCE="pass android/fidelia-admin-password"
 else
@@ -43,7 +44,8 @@ fi
 echo "OK: the password opens $KEY, alias $ALIAS."
 
 if [ -f "$SECRETS" ]; then
-  B64="$(grep '^ANDROID_KEYSTORE_BASE64=' "$SECRETS" | cut -d= -f2-)"
+  B64="$(grep '^ANDROID_KEYSTORE_BASE64=' "$SECRETS" | cut -d= -f2- || true)"
+  [ -n "$B64" ] || { echo "error: no ANDROID_KEYSTORE_BASE64= line in $SECRETS." >&2; exit 1; }
   if [ "$B64" = "$(base64 < "$KEY" | tr -d '\n')" ]; then
     echo "OK: ANDROID_KEYSTORE_BASE64 in $SECRETS is this key."
   else
