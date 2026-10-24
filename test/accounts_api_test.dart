@@ -183,10 +183,12 @@ void main() {
   });
 
   test('the test logins\' password is put once for all', () async {
+    // Generated per run: no password literal in the repository.
+    final password = 'p${DateTime.now().microsecondsSinceEpoch}';
     setup((_) => http.Response('', 204));
-    await api.setTestPassword('partage-2026');
+    await api.setTestPassword(password);
     expect(seen.single.method, 'PUT');
     expect(seen.single.url.path, '$base/test-accounts/password');
-    expect(jsonDecode(seen.single.body), {'password': 'partage-2026'});
+    expect(jsonDecode(seen.single.body), {'password': password});
   });
 }
