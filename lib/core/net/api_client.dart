@@ -160,6 +160,11 @@ class ApiClient {
     await _send('DELETE', path, authenticated: true);
   }
 
+  /// DELETE with a JSON body (a confirmation), returning a decoded JSON object.
+  Future<Map<String, Object?>> deleteJson(String path, {Object? body}) async {
+    return _asObject(await _send('DELETE', path, jsonBody: body, authenticated: true));
+  }
+
   Map<String, Object?> _asObject(Object? body) {
     if (body is! Map<String, Object?>) {
       throw const MalformedResponseException('Réponse inattendue du serveur. Réessayez.');

@@ -223,14 +223,15 @@ void main() {
     expect(find.text('Rien à traiter'), findsOneWidget);
   });
 
-  testWidgets('refusing a number explains what the person sees', (tester) async {
+  testWidgets('a number not on WhatsApp is refused as such, and the person is told', (tester) async {
     await pump(tester);
     await tester.tap(find.text('Numéros à vérifier'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Refuser').first);
+    await tester.tap(find.text('Pas sur WhatsApp').first);
     await tester.pumpAndSettle();
+    expect(find.text('Ce numéro n’est pas sur WhatsApp ?'), findsOneWidget);
     expect(
-      find.text("La personne verra que son numéro n'a pas pu être vérifié et pourra le corriger."),
+      find.text("La personne verra dans l’app que son numéro n’est pas sur WhatsApp, et pourra le corriger."),
       findsOneWidget,
     );
   });

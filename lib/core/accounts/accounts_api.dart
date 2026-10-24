@@ -78,6 +78,31 @@ class AccountsApi {
     return id;
   }
 
+  /// Deletes the account: the person is erased, shops keep their records
+  /// anonymously. A shop owner is refused (409): remove the shop first.
+  Future<void> deleteUser(int userId) async {
+    await _client.delete('$_base/users/$userId');
+  }
+
+  /// Shops matching [query], or null when this admin is not the super admin.
+  Future<List<AdminShop>?> shops(String query) async {
+    try {
+      final rows = await _client.getJsonList('$_base/shops', query: {if (query.trim().isNotEmpty) 'q': query.trim()});
+      return [for (final row in rows) AdminShop.fromJson(row! as Map<String, Object?>)];
+    } on ClientErrorException catch (e) {
+      if (e.statusCode == 403) return null;
+      rethrow;
+    }
+  }
+
+  /// Removes the shop with all its data, and the logins only it needed.
+  /// [confirmName] is the shop's name typed again. Returns rows removed.
+  Future<int> deleteShop(int shopId, String confirmName) async {
+    final json = await _client.deleteJson('$_base/shops/$shopId', body: {'confirm_name': confirmName});
+    final deleted = json['deleted'];
+    return deleted is Map ? deleted.values.whereType<int>().fold<int>(0, (a, b) => a + b) : 0;
+  }
+
   /// The shared test logins, or null when this admin may not manage them: not
   /// the super admin (403), or a production API, which has none (404).
   Future<List<TestAccount>?> testAccounts() async {

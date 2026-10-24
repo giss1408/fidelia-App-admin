@@ -191,4 +191,27 @@ void main() {
     expect(seen.single.url.path, '$base/test-accounts/password');
     expect(jsonDecode(seen.single.body), {'password': password});
   });
+
+  test('deleting a user is a DELETE on the account', () async {
+    setup((_) => http.Response('', 204));
+    await api.deleteUser(7);
+    expect('${seen.single.method} ${seen.single.url.path}', 'DELETE $base/users/7');
+  });
+
+  test('shops are listed for the super admin only, and removal sends the typed name', () async {
+    setup((_) => json(200, [
+          {'id': 3, 'name': 'Chez Test', 'category': 'maquis', 'commune': 'Cocody', 'is_sample': true, 'owner_masked': '07 •• •• 56 79'},
+        ]));
+    final shops = await api.shops('chez');
+    expect(shops!.single.name, 'Chez Test');
+    expect(seen.single.url.queryParameters, {'q': 'chez'});
+
+    setup((_) => json(403, {'detail': 'Reserve au super admin.'}));
+    expect(await api.shops(''), isNull);
+
+    setup((_) => json(200, {'deleted': {'venues': 1, 'deals': 2, 'users': 1}}));
+    expect(await api.deleteShop(3, 'Chez Test'), 4);
+    expect(seen.single.method, 'DELETE');
+    expect(jsonDecode(seen.single.body), {'confirm_name': 'Chez Test'});
+  });
 }

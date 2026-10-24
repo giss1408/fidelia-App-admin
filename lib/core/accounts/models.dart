@@ -40,6 +40,27 @@ class AccountCheck {
   final bool teamCreated;
 }
 
+/// A shop as the super admin sees it before removing it.
+class AdminShop {
+  const AdminShop({required this.id, required this.name, required this.category, required this.commune, required this.isSample, this.ownerMasked});
+
+  factory AdminShop.fromJson(Map<String, Object?> json) => AdminShop(
+        id: json['id']! as int,
+        name: json['name']! as String,
+        category: json['category']! as String,
+        commune: json['commune']! as String,
+        isSample: json['is_sample'] == true,
+        ownerMasked: json['owner_masked'] as String?,
+      );
+
+  final int id;
+  final String name;
+  final String category;
+  final String commune;
+  final bool isSample;
+  final String? ownerMasked;
+}
+
 /// One of the shared test logins (fidelia-BE app/seed.py).
 class TestAccount {
   const TestAccount({required this.phoneMasked, required this.role, required this.hasPassword});

@@ -118,13 +118,13 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Refuser cette demande ?'),
+        title: Text(reset ? 'Refuser cette demande ?' : 'Ce numéro n’est pas sur WhatsApp ?'),
         content: Text(reset
             ? 'La demande sera close.'
-            : "La personne verra que son numéro n'a pas pu être vérifié et pourra le corriger."),
+            : "La personne verra dans l’app que son numéro n’est pas sur WhatsApp, et pourra le corriger."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Refuser')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(reset ? 'Refuser' : 'Pas sur WhatsApp')),
         ],
       ),
     );
@@ -219,7 +219,7 @@ class _CheckCard extends StatelessWidget {
             const SizedBox(height: 12),
             FilledButton(onPressed: busy ? null : onSend, child: Text(label, textAlign: TextAlign.center)),
             const SizedBox(height: 8),
-            OutlinedButton(onPressed: busy ? null : onRefuse, child: const Text('Refuser')),
+            OutlinedButton(onPressed: busy ? null : onRefuse, child: Text(reset ? 'Refuser' : 'Pas sur WhatsApp')),
           ],
         ),
       ),

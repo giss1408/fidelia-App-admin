@@ -139,6 +139,11 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
               onSuspend: () => _act('Suspendre ce compte ?', api.suspend, 'Compte suspendu'),
               onRestore: () => _act('Réactiver ce compte ?', api.restore, 'Compte réactivé'),
               onSignOut: () => _act('Fermer toutes les sessions ?', api.signOut, 'Sessions fermées'),
+              onDelete: () => _act(
+                'Supprimer ce compte ? Le numéro et ses points sont effacés, sans retour.',
+                api.deleteUser,
+                'Compte supprimé',
+              ),
               onReset: () => _act(
                 'Réinitialiser le mot de passe ?',
                 api.resetPassword,
@@ -160,6 +165,7 @@ class _UserCard extends StatelessWidget {
     required this.onRestore,
     required this.onSignOut,
     required this.onReset,
+    required this.onDelete,
   });
 
   final AdminUserView user;
@@ -168,6 +174,7 @@ class _UserCard extends StatelessWidget {
   final VoidCallback onRestore;
   final VoidCallback onSignOut;
   final VoidCallback onReset;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -210,6 +217,12 @@ class _UserCard extends StatelessWidget {
             OutlinedButton(onPressed: busy ? null : onSignOut, child: const Text('Déconnecter partout')),
             const SizedBox(height: 8),
             OutlinedButton(onPressed: busy ? null : onReset, child: const Text('Réinitialiser le mot de passe')),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: busy ? null : onDelete,
+              style: OutlinedButton.styleFrom(foregroundColor: FideliaColors.danger),
+              child: const Text('Supprimer le compte'),
+            ),
           ],
         ),
       ),
