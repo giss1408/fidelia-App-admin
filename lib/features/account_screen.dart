@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/providers.dart';
 import 'change_password_screen.dart';
+import 'test_accounts_screen.dart';
 
-/// « Compte »: the admin's own password and sign-out.
+/// « Compte »: the admin's own password and sign-out, and for the super admin
+/// the shared test logins.
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
 
@@ -50,6 +52,14 @@ class AccountScreen extends ConsumerWidget {
               child: Text(username, style: Theme.of(context).textTheme.titleLarge),
             ),
           FilledButton(onPressed: () => _changePassword(context), child: const Text('Changer mon mot de passe')),
+          // Only the super admin gets a list; anyone else, nothing to show.
+          if (ref.watch(testAccountsProvider).valueOrNull != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const TestAccountsScreen())),
+              child: const Text('Comptes de test'),
+            ),
+          ],
           const SizedBox(height: 12),
           OutlinedButton(onPressed: () => _signOut(context, ref), child: const Text('Se déconnecter')),
         ],

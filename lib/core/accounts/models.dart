@@ -40,6 +40,21 @@ class AccountCheck {
   final bool teamCreated;
 }
 
+/// One of the shared test logins (fidelia-BE app/seed.py).
+class TestAccount {
+  const TestAccount({required this.phoneMasked, required this.role, required this.hasPassword});
+
+  factory TestAccount.fromJson(Map<String, Object?> json) => TestAccount(
+        phoneMasked: json['phone_masked']! as String,
+        role: json['role']! as String,
+        hasPassword: json['has_password'] == true,
+      );
+
+  final String phoneMasked;
+  final String role;
+  final bool hasPassword;
+}
+
 /// An account as the admin sees it after a search.
 class AdminUserView {
   const AdminUserView({

@@ -78,6 +78,24 @@ class AccountsApi {
     return id;
   }
 
+  /// The shared test logins, or null when this admin may not manage them: not
+  /// the super admin (403), or a production API, which has none (404).
+  Future<List<TestAccount>?> testAccounts() async {
+    try {
+      final rows = await _client.getJsonList('$_base/test-accounts');
+      return [for (final row in rows) TestAccount.fromJson(row! as Map<String, Object?>)];
+    } on ClientErrorException catch (e) {
+      if (e.statusCode == 403 || e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// One password for every shared test login. Their open sessions end; the
+  /// super admin's own login is left alone.
+  Future<void> setTestPassword(String password) async {
+    await _client.putJson('$_base/test-accounts/password', body: {'password': password});
+  }
+
   Future<T> _handled<T>(Future<T> Function() call) async {
     try {
       return await call();

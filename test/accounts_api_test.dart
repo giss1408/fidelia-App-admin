@@ -165,4 +165,28 @@ void main() {
     );
     expect(await client.postJson('/x'), isEmpty);
   });
+
+  test('the test logins: listed for the super admin, null for anyone else', () async {
+    setup((_) => json(200, [
+          {'phone_masked': '07 •• •• 00 01', 'role': 'customer', 'has_password': true},
+          {'phone_masked': '07 •• •• 00 09', 'role': 'admin', 'has_password': false},
+        ]));
+    final accounts = await api.testAccounts();
+    expect(accounts!.map((a) => a.role), ['customer', 'admin']);
+    expect(accounts.last.hasPassword, isFalse);
+    expect(seen.single.url.path, '$base/test-accounts');
+
+    for (final status in [403, 404]) {
+      setup((_) => json(status, {'detail': 'Reserve au super admin.'}));
+      expect(await api.testAccounts(), isNull);
+    }
+  });
+
+  test('the test logins\' password is put once for all', () async {
+    setup((_) => http.Response('', 204));
+    await api.setTestPassword('partage-2026');
+    expect(seen.single.method, 'PUT');
+    expect(seen.single.url.path, '$base/test-accounts/password');
+    expect(jsonDecode(seen.single.body), {'password': 'partage-2026'});
+  });
 }
