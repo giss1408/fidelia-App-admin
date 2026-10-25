@@ -5,9 +5,10 @@ import '../core/net/api_exception.dart';
 import '../ui/theme.dart';
 import 'account_screen.dart';
 import 'checks_screen.dart';
+import 'duties_screen.dart';
 import 'users_screen.dart';
 
-/// The signed-in shell: « À traiter », « Utilisateurs » and « Compte ».
+/// The signed-in shell: « À traiter », « Utilisateurs », « Gardes » and « Compte ».
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -17,20 +18,26 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
+  // « Gardes » loads only once opened: most sessions are about requests.
+  bool _dutiesOpened = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [TodoTab(), UsersScreen(), AccountScreen()],
+        children: [const TodoTab(), const UsersScreen(), if (_dutiesOpened) const DutiesScreen() else const SizedBox(), const AccountScreen()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: (i) => setState(() {
+          _index = i;
+          _dutiesOpened |= i == 2;
+        }),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox), label: 'À traiter'),
           NavigationDestination(icon: Icon(Icons.search), label: 'Utilisateurs'),
+          NavigationDestination(icon: Icon(Icons.local_pharmacy_outlined), selectedIcon: Icon(Icons.local_pharmacy), label: 'Gardes'),
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Compte'),
         ],
       ),
