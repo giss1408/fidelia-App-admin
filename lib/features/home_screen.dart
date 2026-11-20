@@ -7,6 +7,7 @@ import 'account_screen.dart';
 import 'checks_screen.dart';
 import 'duties_screen.dart';
 import 'users_screen.dart';
+import 'wallet_changes_screen.dart';
 
 /// The signed-in shell: « À traiter », « Utilisateurs », « Gardes » and « Compte ».
 class HomeScreen extends StatefulWidget {
@@ -84,6 +85,14 @@ class TodoTab extends ConsumerWidget {
                       : 'Chargement impossible. Tirez pour réessayer.',
                 ),
               ),
+            // Wallet changes: where a shop's money is paid out. A change the merchant disowned shows first inside.
+            _CountCard(
+              key: const Key('card-wallet'),
+              title: 'Changements de portefeuille',
+              count: ref.watch(walletChangesProvider).valueOrNull?.length,
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const WalletChangesScreen())),
+            ),
+            const SizedBox(height: 12),
             for (final list in ChecksList.values) ...[
               _CountCard(
                 key: _keys[list],
