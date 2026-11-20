@@ -7,6 +7,7 @@ import 'account_screen.dart';
 import 'checks_screen.dart';
 import 'duties_screen.dart';
 import 'users_screen.dart';
+import 'phone_changes_screen.dart';
 import 'wallet_changes_screen.dart';
 
 /// The signed-in shell: « À traiter », « Utilisateurs », « Gardes » and « Compte ».
@@ -93,6 +94,16 @@ class TodoTab extends ConsumerWidget {
               onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const WalletChangesScreen())),
             ),
             const SizedBox(height: 12),
+            // Number changes (auth mode only: the process lives in the auth service).
+            if (ref.watch(phoneChangesApiProvider) != null) ...[
+              _CountCard(
+                key: const Key('card-phone'),
+                title: 'Changements de numéro',
+                count: ref.watch(phoneChangesProvider).valueOrNull?.length,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PhoneChangesScreen())),
+              ),
+              const SizedBox(height: 12),
+            ],
             for (final list in ChecksList.values) ...[
               _CountCard(
                 key: _keys[list],
