@@ -25,6 +25,23 @@ class FakeFrozen implements FrozenAccountsApi {
   @override
   Future<List<FrozenAccount>> list() async => rows;
 
+  AccountHit? hit;
+  Object? searchError;
+
+  @override
+  Future<AccountHit> search(String phone) async {
+    calls.add('search');
+    if (searchError != null) throw searchError!;
+    return hit!;
+  }
+
+  @override
+  Future<void> disable(String id, String note) async {
+    calls.add('disable $id');
+    notes.add(note);
+    hit = null;
+  }
+
   @override
   Future<void> enable(String id, String note) async {
     calls.add('enable $id');

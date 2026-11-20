@@ -5,6 +5,7 @@ import '../core/accounts/frozen_accounts_api.dart';
 import '../core/net/api_exception.dart';
 import '../core/providers.dart';
 import 'relative_age.dart';
+import 'account_lookup_screen.dart';
 import 'step_up.dart';
 
 final frozenAccountsApiProvider = Provider<FrozenAccountsApi?>((ref) {
@@ -89,7 +90,14 @@ class _FrozenAccountsScreenState extends ConsumerState<FrozenAccountsScreen> {
   Widget build(BuildContext context) {
     final data = ref.watch(frozenAccountsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Comptes gelés')),
+      appBar: AppBar(title: const Text('Comptes gelés'), actions: [
+        IconButton(
+          key: const Key('lookup'),
+          tooltip: 'Suspendre un compte',
+          icon: const Icon(Icons.person_off_outlined),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AccountLookupScreen())),
+        ),
+      ]),
       body: RefreshIndicator(
         onRefresh: () async => ref.refresh(frozenAccountsProvider.future).then((_) {}, onError: (_) {}),
         child: data.when(
