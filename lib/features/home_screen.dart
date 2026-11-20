@@ -7,6 +7,7 @@ import 'account_screen.dart';
 import 'checks_screen.dart';
 import 'duties_screen.dart';
 import 'users_screen.dart';
+import 'frozen_accounts_screen.dart';
 import 'phone_changes_screen.dart';
 import 'relay_queue_screen.dart';
 import 'wallet_changes_screen.dart';
@@ -102,6 +103,16 @@ class TodoTab extends ConsumerWidget {
                 title: 'Codes à envoyer',
                 count: ref.watch(relayQueueProvider).valueOrNull?.length,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const RelayQueueScreen())),
+              ),
+              const SizedBox(height: 12),
+            ],
+            // Frozen accounts (auth mode only).
+            if (ref.watch(frozenAccountsApiProvider) != null) ...[
+              _CountCard(
+                key: const Key('card-frozen'),
+                title: 'Comptes gelés',
+                count: ref.watch(frozenAccountsProvider).valueOrNull?.length,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const FrozenAccountsScreen())),
               ),
               const SizedBox(height: 12),
             ],
