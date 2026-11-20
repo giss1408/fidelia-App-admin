@@ -6,6 +6,7 @@ import '../core/net/api_exception.dart';
 import '../core/providers.dart';
 import '../ui/theme.dart';
 import 'relative_age.dart';
+import 'step_up.dart';
 import 'whatsapp.dart';
 
 const _providerNames = {'wave': 'Wave', 'orange': 'Orange Money', 'mtn': 'MTN MoMo', 'moov': 'Moov Money'};
@@ -49,7 +50,7 @@ class _WalletChangesScreenState extends ConsumerState<WalletChangesScreen> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      await action();
+      await withStepUp(context, ref, action);
     } on ApiException catch (e) {
       _say(walletChangeErrorMessage(e));
     } catch (_) {

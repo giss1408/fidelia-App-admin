@@ -119,7 +119,11 @@ String jwtRole(String token) {
 /// Whether the token carries the `pc` (password change required) claim, set
 /// while the account still uses a temporary password. Same caveat as
 /// [jwtExpiry]: it only decides what the app shows; the server enforces it.
-bool jwtMustChangePassword(String token) => _jwtClaims(token)?['pc'] == true;
+bool jwtMustChangePassword(String token) {
+  final claims = _jwtClaims(token);
+  // `pc`: fidelia's own tokens; `mcp`: tokens from the platform auth service.
+  return claims?['pc'] == true || claims?['mcp'] == true;
+}
 
 Map<Object?, Object?>? _jwtClaims(String token) {
   final parts = token.split('.');

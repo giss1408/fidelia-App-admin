@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/auth/auth_repository.dart';
+import '../core/config/env.dart';
 import '../core/providers.dart';
 import '../ui/theme.dart';
 
@@ -16,6 +17,7 @@ class SignInScreen extends ConsumerStatefulWidget {
 class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _phone = TextEditingController();
   final _password = TextEditingController();
+  final _totp = TextEditingController();
   bool _hidden = true;
   bool _busy = false;
   String? _error;
@@ -24,6 +26,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   void dispose() {
     _phone.dispose();
     _password.dispose();
+    _totp.dispose();
     super.dispose();
   }
 
@@ -37,7 +40,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       _busy = true;
       _error = null;
     });
-    final result = await ref.read(sessionProvider.notifier).signIn(phone: _phone.text.trim(), password: _password.text);
+    final result = await ref.read(sessionProvider.notifier).signIn(phone: _phone.text.trim(), password: _password.text, totp: _totp.text);
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -89,8 +92,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   controller: _password,
                   obscureText: _hidden,
                   autofillHints: const [AutofillHints.password],
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _submit(),
+                  textInputAction: Env.authMode ? TextInputAction.next : TextInputAction.done,
+                  onSubmitted: (_) => Env.authMode ? null : _submit(),
                   decoration: InputDecoration(
                     labelText: 'Mot de passe',
                     prefixIcon: const Icon(Icons.lock_outline),
@@ -101,6 +104,19 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     ),
                   ),
                 ),
+                if (Env.authMode) ...[
+                  const SizedBox(height: 14),
+                  TextField(
+                    key: const Key('totp-field'),
+                    controller: _totp,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    autofillHints: const [AutofillHints.oneTimeCode],
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _submit(),
+                    decoration: const InputDecoration(labelText: 'Code d’authentification (6 chiffres)', prefixIcon: Icon(Icons.shield_outlined), counterText: ''),
+                  ),
+                ],
                 if (_error != null) ...[
                   const SizedBox(height: 14),
                   Text(_error!, key: const Key('form-error'), style: const TextStyle(color: FideliaColors.danger, fontSize: 15)),

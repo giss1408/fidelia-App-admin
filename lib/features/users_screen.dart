@@ -8,6 +8,7 @@ import '../core/providers.dart';
 import '../ui/theme.dart';
 import 'checks_screen.dart';
 import 'relative_age.dart';
+import 'step_up.dart';
 
 const _roleNames = {
   'customer': 'Client',
@@ -98,7 +99,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
     if (confirmed != true || !mounted) return;
     setState(() => _busy = true);
     try {
-      await action(user.id);
+      await withStepUp(context, ref, () => action(user.id));
       if (refreshChecksAfter) ref.invalidate(checksProvider);
       _say(done);
       await _load(_searched);

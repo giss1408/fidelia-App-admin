@@ -9,6 +9,7 @@ class FakeAuth implements AuthRepository {
   SignInResult? signInResult;
   String? changeError;
 
+  String? lastTotp;
   String? lastPhone;
   String? lastPassword;
   String? lastCurrent;
@@ -23,9 +24,14 @@ class FakeAuth implements AuthRepository {
   Future<bool> mustChangePassword() async => session && pc;
   @override
   Future<bool> refresh() async => session;
+  @override
+  bool get authMode => false;
+  @override
+  Future<void> stepUp({required String password, required String totp}) async {}
 
   @override
-  Future<SignInResult> signIn({required String phone, required String password}) async {
+  Future<SignInResult> signIn({required String phone, required String password, String? totp}) async {
+    lastTotp = totp;
     lastPhone = phone;
     lastPassword = password;
     final result = signInResult ?? const SignedIn(mustChangePassword: false);

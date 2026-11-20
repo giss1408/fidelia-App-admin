@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'accounts/accounts_api.dart';
 import 'accounts/wallet_changes_api.dart';
 import 'auth/auth_repository.dart';
+import 'config/env.dart';
 import 'auth/token_store.dart';
 import 'net/api_client.dart';
 
@@ -43,10 +44,19 @@ final Provider<AccountsApi> accountsApiProvider =
 final Provider<WalletChangesApi> walletChangesApiProvider =
     Provider<WalletChangesApi>((ref) => WalletChangesApi(ref.watch(apiClientProvider)));
 
+/// The platform auth service (SSO), or null while the build has no FIDELIA_AUTH_BASE (fidelia's own sign-in then).
+final Provider<ApiClient?> authServiceClientProvider = Provider<ApiClient?>((ref) {
+  if (!Env.authMode) return null;
+  final client = ApiClient(tokenProvider: ref.watch(freshTokenProvider), baseUrl: Env.authBase);
+  ref.onDispose(client.close);
+  return client;
+});
+
 final Provider<AuthRepository> authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     client: ref.watch(apiClientProvider),
     tokenStore: ref.watch(tokenStoreProvider),
+    authClient: ref.watch(authServiceClientProvider),
   );
 });
 
@@ -87,9 +97,9 @@ class SessionNotifier extends Notifier<SessionState> {
     );
   }
 
-  Future<SignInResult> signIn({required String phone, required String password}) async {
+  Future<SignInResult> signIn({required String phone, required String password, String? totp}) async {
     final auth = ref.read(authRepositoryProvider);
-    final result = await auth.signIn(phone: phone, password: password);
+    final result = await auth.signIn(phone: phone, password: password, totp: totp);
     if (result is SignedIn) {
       state = SessionState(
         signedIn: true,

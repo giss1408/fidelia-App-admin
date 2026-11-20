@@ -44,9 +44,22 @@ class SignInUnavailable extends SignInResult {
 /// Only an `admin` session is accepted; any other role is treated as no
 /// session at all.
 class AuthRepository {
-  AuthRepository({required ApiClient client, required TokenStore tokenStore})
+  AuthRepository({required ApiClient client, required TokenStore tokenStore, ApiClient? authClient})
       : _client = client,
-        _tokenStore = tokenStore;
+        _tokenStore = tokenStore,
+        _auth = authClient;
+
+  /// Talks to the platform auth service (SSO) when set: sign-in (with the authenticator code), renewal, sign-out, password change and
+  /// step-up go there; fidelia only receives the access token the service issued. Null = fidelia's own sign-in.
+  final ApiClient? _auth;
+
+  bool get authMode => _auth != null;
+
+  /// The temporary password just typed, in memory only, so the forced "new password" step can send it as the current one.
+  String? _signInPassword;
+
+  /// `admin`, or `super_admin` (the auth service's name for the founder role: fidelia treats it as an admin).
+  static bool isAdminRole(String role) => role == appRole || role == 'super_admin';
 
   static const appRole = 'admin';
   static const _unusable = 'La réponse du serveur est inutilisable';
@@ -66,7 +79,7 @@ class AuthRepository {
   /// refresh token that can mint one. A session of another role is wiped.
   Future<bool> hasValidSession() async {
     final token = await _tokenStore.readToken();
-    if (token != null && token.isNotEmpty && jwtRole(token) != appRole) {
+    if (token != null && token.isNotEmpty && !isAdminRole(jwtRole(token))) {
       await _tokenStore.clear();
       return false;
     }
@@ -87,7 +100,8 @@ class AuthRepository {
 
   /// [phone] may be typed in national form ("07 01 02 03 04"); spaces are
   /// dropped and the server normalises the rest.
-  Future<SignInResult> signIn({required String phone, required String password}) async {
+  Future<SignInResult> signIn({required String phone, required String password, String? totp}) async {
+    if (_auth != null) return _authSignIn(phone, password, totp);
     try {
       final body = await _client.postJson(
         '/api/auth/login',
@@ -100,7 +114,7 @@ class AuthRepository {
         authenticated: false,
       );
       final token = body['access_token'];
-      if (token is String && token.isNotEmpty && jwtRole(token) != appRole) {
+      if (token is String && token.isNotEmpty && !isAdminRole(jwtRole(token))) {
         return const SignInRejected(_notAdmin);
       }
       if (!await _store(body)) return const SignInUnavailable(_unusable);
@@ -131,30 +145,97 @@ class AuthRepository {
     final refreshToken = await _tokenStore.readRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) return false;
     try {
-      final body = await _client.postJson(
-        '/api/auth/refresh',
+      final body = await (_auth ?? _client).postJson(
+        _auth != null ? '/v1/refresh' : '/api/auth/refresh',
         body: {'refresh_token': refreshToken},
         authenticated: false,
       );
       final access = body['access_token'];
-      if (access is String && jwtRole(access) != appRole) {
+      if (access is String && !isAdminRole(jwtRole(access))) {
         await _tokenStore.clear();
         return false;
       }
-      return _store(body);
+      return _store(body, username: await currentUsername());
     } on ClientErrorException {
       return false;
     }
   }
 
-  Future<bool> _store(Map<String, Object?> body) async {
+  Future<SignInResult> _authSignIn(String phone, String password, String? totp) async {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    try {
+      final body = await _auth!.postJson(
+        '/v1/login',
+        body: {
+          'phone': phone.replaceAll(RegExp(r'\s+'), ''),
+          'password': password,
+          'product': 'fidelia',
+          'app': appRole,
+          if (totp != null && totp.trim().isNotEmpty) 'totp': totp.trim(),
+        },
+        authenticated: false,
+      );
+      final token = body['access_token'];
+      if (token is String && token.isNotEmpty && !isAdminRole(jwtRole(token))) return const SignInRejected(_notAdmin);
+      if (!await _store(body, username: maskPhone(digits))) return const SignInUnavailable(_unusable);
+      _signInPassword = body['must_change_password'] == true ? password : null;
+      return SignedIn(mustChangePassword: await mustChangePassword());
+    } on ClientErrorException catch (error) {
+      return SignInRejected(switch (error.detail) {
+        'invalid_credentials' => 'Numéro ou mot de passe incorrect.',
+        'invalid_totp' => 'Code d’authentification incorrect, manquant ou déjà utilisé.',
+        'totp_not_set_up' => 'Ce compte n’a pas encore d’application d’authentification : voir un super administrateur.',
+        'not_activated' => "Ce compte n'est pas encore activé.",
+        'account_blocked' => 'Ce compte est suspendu.',
+        'no_access_to_app' => _notAdmin,
+        'login_locked' => 'Trop d’essais. Réessayez dans 15 minutes.',
+        'temp_password_expired' => 'Le mot de passe temporaire a expiré : demandez-en un nouveau à un super administrateur.',
+        'rate_limited' => 'Trop de tentatives. Réessayez dans quelques minutes.',
+        final String other => other,
+        _ => error.message,
+      });
+    } on ApiException catch (error) {
+      return SignInUnavailable(error.message);
+    }
+  }
+
+  /// "07 •• •• 03 04" from the digits typed.
+  static String maskPhone(String digits) {
+    final d = digits.length > 10 ? digits.substring(digits.length - 10) : digits;
+    return d.length < 10 ? '•• •• ••' : '${d.substring(0, 2)} •• •• ${d.substring(6, 8)} ${d.substring(8, 10)}';
+  }
+
+  /// Re-proves password AND authenticator code at the auth service and keeps the fresh access token it returns (same session, fresh
+  /// proof). Fidelia's admin actions (roles, suspensions, wallet changes) ask for this within 5 minutes.
+  Future<void> stepUp({required String password, required String totp}) async {
+    final auth = _auth;
+    if (auth == null) throw const AccountActionException('Connexion par mot de passe requise.');
+    try {
+      final body = await auth.postJson('/v1/step-up', body: {'password': password, 'totp': totp.trim()}, unauthorizedEndsSession: false);
+      final access = body['access_token'];
+      final refresh = await _tokenStore.readRefreshToken();
+      if (access is! String || access.isEmpty || refresh == null) throw const AccountActionException(_unusable);
+      await _tokenStore.save(token: access, refreshToken: refresh, username: await currentUsername() ?? '');
+    } on ClientErrorException catch (error) {
+      throw AccountActionException(switch (error.detail) {
+        'invalid_credentials' => 'Mot de passe incorrect.',
+        'invalid_totp' => 'Code d’authentification incorrect ou déjà utilisé : attendez le code suivant.',
+        'login_locked' => 'Trop d’essais. Réessayez dans 15 minutes.',
+        _ => error.message,
+      });
+    } on ApiException catch (error) {
+      throw AccountActionException(error.message);
+    }
+  }
+
+  Future<bool> _store(Map<String, Object?> body, {String? username}) async {
     final access = body['access_token'];
     final refresh = body['refresh_token'];
     if (access is! String || access.isEmpty || refresh is! String || refresh.isEmpty) return false;
     await _tokenStore.save(
       token: access,
       refreshToken: refresh,
-      username: body['phone_masked'] as String? ?? '',
+      username: body['phone_masked'] as String? ?? username ?? '',
     );
     return true;
   }
@@ -163,6 +244,22 @@ class AuthRepository {
   /// temporary password. On success the server's new token pair replaces the
   /// stored one, which no longer carries the `pc` claim.
   Future<void> changePassword({String? current, required String newPassword}) async {
+    final auth = _auth;
+    if (auth != null) {
+      final currentPassword = current ?? _signInPassword;
+      if (currentPassword == null) throw const AccountActionException('Saisissez votre mot de passe actuel.');
+      try {
+        await auth.postJson('/v1/password/change', body: {'current_password': currentPassword, 'new_password': newPassword}, unauthorizedEndsSession: false);
+      } on ClientErrorException catch (error) {
+        throw AccountActionException(error.detail == 'invalid_credentials' ? 'Mot de passe actuel incorrect.' : error.message);
+      } on ApiException catch (error) {
+        throw AccountActionException(error.message);
+      }
+      _signInPassword = null;
+      // Nothing to store from the change itself: renew, which issues a token without the "must change" mark.
+      if (!await refresh()) throw const AccountActionException(_unusable);
+      return;
+    }
     try {
       final body = await _client.postJson(
         '/api/auth/password',
@@ -182,9 +279,10 @@ class AuthRepository {
   /// here.
   Future<void> signOut() async {
     final refreshToken = await _tokenStore.readRefreshToken();
+    _signInPassword = null;
     if (refreshToken != null && refreshToken.isNotEmpty) {
       try {
-        await _client.postJson('/api/auth/logout', body: {'refresh_token': refreshToken}, authenticated: false);
+        await (_auth ?? _client).postJson(_auth != null ? '/v1/logout' : '/api/auth/logout', body: {'refresh_token': refreshToken}, authenticated: false);
       } on ApiException {
         // Best effort; the local wipe below is what matters on this device.
       }
